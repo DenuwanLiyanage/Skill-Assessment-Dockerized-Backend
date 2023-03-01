@@ -1,0 +1,83 @@
+version: "3"
+
+services:
+  order-service:
+    build:
+      context: ./order_service
+    ports:
+      - "8087:8087"
+    depends_on:
+      - db
+      - kafka
+      - client-service
+    environment:
+      - KAFKA_HOST=kafka
+      - CLIENT_HOST=client-service
+    networks:
+      - my-network
+
+  db:
+    image: mysql:latest
+    container_name: db
+    environment:
+      MYSQL_ROOT_PASSWORD: 123
+      MYSQL_DATABASE: skill_assessment_db
+      MYSQL_USER: db_user
+      MYSQL_PASSWORD: 123
+    ports:
+      - "3306:3306"
+    volumes:
+      - dbdata:/var/lib/mysql
+    networks:
+      - my-network
+
+  client-service:
+    image: client-service
+    build:
+      context: ./clients_service
+    ports:
+      - "8086:8086"
+    depends_on:
+      - db
+    environment:
+      - ORDER_HOST=order-service
+    networks:
+      - my-network
+
+  distribution-service:
+    image: distribution-service
+    build:
+      context: ./distribution_service
+    ports:
+      - "8089:8089"
+    depends_on:
+      - db
+      - kafka
+      - order-service
+    environment:
+      - KAFKA_HOST=kafka
+      - ORDER_HOST=order-service
+    networks:
+      - my-network
+
+  kafka:
+    image: wurstmeister/kafka
+    environment:
+      KAFKA_ADVERTISED_HOST_NAME: kafka
+      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
+    ports:
+      - "9092:9092"
+    networks:
+      - my-network
+  zookeeper:
+    image: wurstmeister/zookeeper
+    environment:
+      ZOO_MY_ID: 1
+      ZOO_SERVERS: server.1=zookeeper:2888:3888
+    networks:
+      - my-network
+
+networks:
+  my-network:
+volumes:
+  dbdata:
